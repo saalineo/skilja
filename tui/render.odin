@@ -21,10 +21,10 @@ Terminal_Size :: struct {
 }
 
 get_terminal_size :: proc() -> Terminal_Size {
-    ws: Winsize
-    res := linux.ioctl(linux.Fd(1), TIOCGWINSZ, uintptr(&ws))
-    if transmute(int)res >= 0 {
-        return Terminal_Size{width = int(ws.ws_col), height = int(ws.ws_row)}
+    winsize_raw: Winsize
+    status := linux.ioctl(linux.Fd(1), TIOCGWINSZ, uintptr(&winsize_raw))
+    if transmute(int)status >= 0 {
+        return Terminal_Size{width = int(winsize_raw.ws_col), height = int(winsize_raw.ws_row)}
     }
     return Terminal_Size{width = 80, height = 24}
 }
@@ -42,22 +42,22 @@ clear_screen :: proc() {
 }
 
 get_waveform_color :: proc(dist_from_center: f32) -> (r, g, b: int) {
-    d := clamp(dist_from_center, 0.0, 1.0)
+    dist := clamp(dist_from_center, 0.0, 1.0)
 
-    if d < 0.12 {
+    if dist < 0.12 {
         return 245, 255, 255
-    } else if d < 0.35 {
-        t := (d - 0.12) / 0.23
+    } else if dist < 0.35 {
+        t := (dist - 0.12) / 0.23
         r = int(120.0 * (1.0 - t))
         g = int(220.0 + (150.0 - 220.0) * t)
         b = 255
-    } else if d < 0.70 {
-        t := (d - 0.35) / 0.35
+    } else if dist < 0.70 {
+        t := (dist - 0.35) / 0.35
         r = 0
         g = int(150.0 * (1.0 - t))
         b = int(255.0 + (180.0 - 255.0) * t)
     } else {
-        t := (d - 0.70) / 0.30
+        t := (dist - 0.70) / 0.30
         r = 0
         g = 0
         b = int(180.0 * (1.0 - t) + 60.0)
@@ -83,8 +83,8 @@ render_frame :: proc(bars: []physics.Bar_State, width, height: int, builder: ^st
         strings.write_string(builder, color_seq)
 
         for x in 0..<width {
-            nx := (f32(x) / f32(width)) * 2.0 - 1.0
-            envelope := 1.0 - math.pow(math.abs(nx), 1.25)
+            norm_x := (f32(x) / f32(width)) * 2.0 - 1.0
+            envelope := 1.0 - math.pow(math.abs(norm_x), 1.25)
             envelope = clamp(envelope, 0.05, 1.0)
 
             bar_idx := int((f32(x) / f32(width)) * f32(num_bars))
@@ -105,3 +105,4 @@ render_frame :: proc(bars: []physics.Bar_State, width, height: int, builder: ^st
     strings.write_string(builder, "\x1b[0m")
     fmt.print(strings.to_string(builder^))
 }
+

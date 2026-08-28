@@ -15,7 +15,7 @@ FFT_SIZE :: 2048
 
 main :: proc() {
 	if !audio.init(44100) {
-		fmt.eprintln("Failed to initialize audio capture.")
+		fmt.eprintln("audio: init failed")
 		os.exit(1)
 	}
 	defer audio.shutdown()
@@ -25,14 +25,14 @@ main :: proc() {
 
 	orig_termios: posix.termios
 	posix.tcgetattr(posix.STDIN_FILENO, &orig_termios)
-	
-	raw := orig_termios
-	raw.c_lflag -= { .ECHO, .ICANON, .ISIG, .IEXTEN }
-	raw.c_iflag -= { .IXON, .ICRNL }
-	raw.c_cc[.VMIN] = 0
-	raw.c_cc[.VTIME] = 0
-	posix.tcsetattr(posix.STDIN_FILENO, .TCSAFLUSH, &raw)
-	
+
+	raw_termios := orig_termios
+	raw_termios.c_lflag -= { .ECHO, .ICANON, .ISIG, .IEXTEN }
+	raw_termios.c_iflag -= { .IXON, .ICRNL }
+	raw_termios.c_cc[.VMIN] = 0
+	raw_termios.c_cc[.VTIME] = 0
+	posix.tcsetattr(posix.STDIN_FILENO, .TCSAFLUSH, &raw_termios)
+
 	defer posix.tcsetattr(posix.STDIN_FILENO, .TCSAFLUSH, &orig_termios)
 	window := make([]f32, FFT_SIZE)
 	defer delete(window)
@@ -47,8 +47,8 @@ main :: proc() {
 	fft_data := make([]complex64, FFT_SIZE)
 	defer delete(fft_data)
 
-	ts := tui.get_terminal_size()
-	num_bars := ts.width
+	term_size := tui.get_terminal_size()
+	num_bars := term_size.width
 	if num_bars <= 0 do num_bars = 40
 	bars_state := make([]physics.Bar_State, num_bars)
 	defer delete(bars_state)
@@ -79,39 +79,36 @@ main :: proc() {
 	defer strings.builder_destroy(&builder)
 
 	max_val_seen: f32 = 0.05
-
-	last_width, last_height := ts.width, ts.height
+	last_width, last_height := term_size.width, term_size.height
 
 	for {
-		ch: u8 = 0
-		bytes_read := posix.read(posix.STDIN_FILENO, &ch, 1)
-		if bytes_read > 0 {
-			if ch == 'q' || ch == 'Q' || ch == 27 { // 'q', 'Q', or Esc
-				break
-			}
+		key: u8 = 0
+		bytes_read := posix.read(posix.STDIN_FILENO, &key, 1)
+		if bytes_read > 0 && (key == 'q' || key == 'Q' || key == 27) {
+			break
 		}
 
-		ts = tui.get_terminal_size()
-		if ts.width != last_width || ts.height != last_height {
+		term_size = tui.get_terminal_size()
+		if term_size.width != last_width || term_size.height != last_height {
 			tui.clear_screen()
-			last_width = ts.width
-			last_height = ts.height
-			
-			num_bars = ts.width
+			last_width = term_size.width
+			last_height = term_size.height
+
+			num_bars = term_size.width
 			if num_bars <= 0 do num_bars = 40
-			
+
 			delete(bars_state)
 			bars_state = make([]physics.Bar_State, num_bars)
-			
+
 			delete(bin_lows)
 			delete(bin_highs)
 			bin_lows = make([]int, num_bars)
 			bin_highs = make([]int, num_bars)
 			dsp.calculate_bins(num_bars, FFT_SIZE, 44100.0, 20.0, 20000.0, bin_lows, bin_highs)
-			
+
 			delete(raw_bars)
 			raw_bars = make([]f32, num_bars)
-			
+
 			delete(normalized_bars)
 			normalized_bars = make([]f32, num_bars)
 		}
@@ -125,7 +122,7 @@ main :: proc() {
 		dsp.fft(fft_data)
 
 		dsp.bin_fft_data(fft_data, bin_lows, bin_highs, raw_bars)
-		
+
 		max_val_seen = math.max(max_val_seen * 0.995, 0.05)
 		for val in raw_bars {
 			if val > max_val_seen {
@@ -139,8 +136,9 @@ main :: proc() {
 
 		physics.update_physics(bars_state, normalized_bars, physics_config)
 
-		tui.render_frame(bars_state, ts.width, ts.height, &builder)
+		tui.render_frame(bars_state, term_size.width, term_size.height, &builder)
 
 		time.sleep(16 * time.Millisecond)
 	}
+
 }

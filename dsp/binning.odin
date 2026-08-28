@@ -11,20 +11,24 @@ calculate_bins :: proc(
 	bin_lows: []int,
 	bin_highs: []int,
 ) {
-	fft_half := fft_size / 2
+	half_fft := fft_size / 2
 	for i in 0..<num_bars {
-		f_low  := min_freq * math.pow(max_freq / min_freq, f32(i) / f32(num_bars))
-		f_high := min_freq * math.pow(max_freq / min_freq, f32(i + 1) / f32(num_bars))
-		low_idx  := int(f_low * f32(fft_size) / sample_rate)
-		high_idx := int(f_high * f32(fft_size) / sample_rate)
-		if low_idx < 1 do low_idx = 1
-		if high_idx <= low_idx do high_idx = low_idx + 1
-		if low_idx >= fft_half do low_idx = fft_half - 1
-		if high_idx > fft_half do high_idx = fft_half
-		bin_lows[i]  = low_idx
-		bin_highs[i] = high_idx
+		freq_low  := min_freq * math.pow(max_freq / min_freq, f32(i) / f32(num_bars))
+		freq_high := min_freq * math.pow(max_freq / min_freq, f32(i + 1) / f32(num_bars))
+
+		bin_start := int(freq_low * f32(fft_size) / sample_rate)
+		bin_end   := int(freq_high * f32(fft_size) / sample_rate)
+
+		if bin_start < 1 do bin_start = 1
+		if bin_end <= bin_start do bin_end = bin_start + 1
+		if bin_start >= half_fft do bin_start = half_fft - 1
+		if bin_end > half_fft do bin_end = half_fft
+
+		bin_lows[i]  = bin_start
+		bin_highs[i] = bin_end
 	}
 }
+
 bin_fft_data :: proc(
 	fft_data: []complex64,
 	bin_lows: []int,
@@ -35,15 +39,17 @@ bin_fft_data :: proc(
 	for i in 0..<num_bars {
 		low := bin_lows[i]
 		high := bin_highs[i]
+
 		sum: f32 = 0.0
 		for k in low..<high {
-			r := real(fft_data[k])
+			re := real(fft_data[k])
 			im := imag(fft_data[k])
-			mag := math.sqrt(r*r + im*im)
-			sum += mag
+			sum += math.sqrt(re*re + im*im)
 		}
+
 		avg := sum / f32(high - low)
 		boost := 1.0 + 3.0 * (f32(i) / f32(num_bars))
 		bars[i] = avg * boost
 	}
 }
+

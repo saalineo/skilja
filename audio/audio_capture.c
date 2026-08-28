@@ -61,9 +61,9 @@ int audio_capture_init(unsigned int sample_rate) {
     const ma_device_id* pMonitorID = find_loopback_source_id(&g_context);
     if (pMonitorID != NULL) {
         deviceConfig.capture.pDeviceID = pMonitorID;
-        fprintf(stderr, "skilja: capturing system audio (monitor source)\n");
+        fprintf(stderr, "audio: using system output monitor\n");
     } else {
-        fprintf(stderr, "skilja: warning: no monitor source found, falling back to default input (microphone)\n");
+        fprintf(stderr, "audio: monitor unavailable, using microphone\n");
     }
 
     if (ma_device_init(&g_context, &deviceConfig, &g_device) != MA_SUCCESS) {

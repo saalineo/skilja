@@ -29,21 +29,20 @@ foreign libaudio_capture {
 Demuxer_State :: rawptr
 
 demuxer_create :: proc(model_path: string = "models/2stem_separator_fp32.onnx") -> Demuxer_State {
-	c_path := strings.clone_to_cstring(model_path, context.temp_allocator)
-	return init_demuxer(c_path)
+	path_cstring := strings.clone_to_cstring(model_path, context.temp_allocator)
+	return init_demuxer(path_cstring)
 }
 
 demuxer_process :: proc(handle: Demuxer_State, raw: []f32, vocals: []f32, bgm: []f32, noise: []f32 = nil) -> bool {
 	if handle == nil || len(raw) == 0 || len(vocals) < len(raw) || len(bgm) < len(raw) {
 		return false
 	}
-	n := i32(len(raw))
-	noise_ptr: [^]f32 = nil
+	count := i32(len(raw))
+	noise_ptr: [^]f32
 	if noise != nil && len(noise) >= len(raw) {
 		noise_ptr = raw_data(noise)
 	}
-	res := process_separation(handle, raw_data(raw), raw_data(vocals), raw_data(bgm), noise_ptr, n)
-	return res == 1
+	return process_separation(handle, raw_data(raw), raw_data(vocals), raw_data(bgm), noise_ptr, count) == 1
 }
 
 demuxer_free :: proc(handle: Demuxer_State) {
@@ -70,15 +69,14 @@ denoise_create :: proc() -> ^Denoise_State {
 	return denoise_init()
 }
 
-denoise_free :: proc(st: ^Denoise_State) {
-	denoise_destroy(st)
+denoise_free :: proc(state: ^Denoise_State) {
+	denoise_destroy(state)
 }
 
-// Separates 480 input samples into speech and noise residual (Noise = Raw - Clean)
-process_frame :: proc(st: ^Denoise_State, input: []f32, speech: []f32, noise_residual: []f32) -> bool {
+process_frame :: proc(state: ^Denoise_State, input: []f32, speech: []f32, noise_residual: []f32) -> bool {
 	if len(input) < RNNOISE_FRAME_SIZE || len(speech) < RNNOISE_FRAME_SIZE || len(noise_residual) < RNNOISE_FRAME_SIZE {
 		return false
 	}
-	res := denoise_process_frame(st, raw_data(input), raw_data(speech), raw_data(noise_residual))
-	return res == 1
+	return denoise_process_frame(state, raw_data(input), raw_data(speech), raw_data(noise_residual)) == 1
 }
+

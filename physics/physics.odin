@@ -30,9 +30,7 @@ update_physics :: proc(
 			state.value = math.lerp(state.value, target, config.fall_smoothing)
 			state.value = math.max(0.0, state.value - config.gravity)
 		}
-
-		if state.value < 0.0 do state.value = 0.0
-		if state.value > 1.0 do state.value = 1.0
+		state.value = math.clamp(state.value, 0.0, 1.0)
 
 		if state.value >= state.peak {
 			state.peak = state.value
@@ -44,7 +42,7 @@ update_physics :: proc(
 				state.peak = math.max(0.0, state.peak - config.peak_gravity)
 			}
 		}
-
-		if state.peak > 1.0 do state.peak = 1.0
+		state.peak = math.clamp(state.peak, 0.0, 1.0)
 	}
 }
+
