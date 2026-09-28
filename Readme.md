@@ -1,48 +1,40 @@
 # skilja
 
-Fast, terminal-native stem separation and audio visualization powered by ONNX Runtime and Odin
+Fast, terminal-native stem separation and audio visualization in Rust.
+
+## Features
+
+- **Audio Capture**: Real-time loopback/monitor and input device capture powered by `cpal`.
+- **DSP & FFT**: In-place Cooley-Tukey radix-2 FFT with Hann windowing and logarithmic frequency binning.
+- **Physics Simulation**: Falloff smoothing, gravity, and peak-hold mechanics for fluid audio metering.
+- **Terminal UI**: High-throughput TrueColor rendering over raw ANSI with zero-allocation frame buffering and clean RAII terminal restoration.
+- **ML Separation**: Embedded ONNX Runtime (`ort`) stem demuxing and RNNoise (`nnnoiseless`) denoising.
 
 ## Prerequisites
 
-- **Odin compiler**: [`odin`](https://odin-lang.org/)
-- **C compiler**: `gcc` / `clang`
-- **Dependencies**: `librnnoise-dev`, `pthread`, `m`, `dl`
+- **Rust**: 1.75+ (`cargo`, `rustc`)
+- **Linux Audio Libraries**: `libasound2-dev` (Debian/Ubuntu) or `alsa-lib` (Arch/Fedora) for `cpal` ALSA backend
 
 ## Build & Run
 
-### 1. Build C Audio Library & FFI Wrappers
-
-Run the audio build script (compiles miniaudio capture, RNNoise denoiser wrapper, and ONNX Runtime demuxer FFI into `libaudio_capture.a`):
+### Run the Visualizer
 
 ```bash
-./scripts/build_audio.sh
+cargo run --release
 ```
 
-Or manually:
+Controls: Press `q`, `Q`, or `Esc` to exit.
+
+### Run Tests
 
 ```bash
-cd audio
-gcc -c -O3 audio_capture.c -o audio_capture.o
-gcc -c -O3 denoise.c -o denoise.o
-gcc -c -O3 demuxer.c -I../third_party/onnxruntime-linux-x64-1.29.0/include -o demuxer.o
-ar rcs libaudio_capture.a audio_capture.o denoise.o demuxer.o
-cd ..
+cargo test
 ```
 
-### 2. Build the Odin Executable
+## Architecture
 
-Link against ONNX Runtime and system libraries:
-
-```bash
-odin build . -out:skilja -extra-linker-flags:"-Lthird_party/onnxruntime-linux-x64-1.29.0/lib -lonnxruntime -lrnnoise -lpthread -lm -ldl"
-```
-
-### 3. Run Skilja
-
-Make sure ONNX Runtime shared libraries are available in your dynamic link path (or present in `third_party/onnxruntime-linux-x64-1.29.0/lib`):
-
-```bash
-LD_LIBRARY_PATH=third_party/onnxruntime-linux-x64-1.29.0/lib:$LD_LIBRARY_PATH ./skilja
-```
-
-*Press `q`, `Q`, or `Esc` to quit.*
+- [`src/audio`](src/audio/mod.rs): Device discovery, stream lifecycle, lock-free ring buffering, ONNX demuxer, and RNNoise denoiser.
+- [`src/dsp`](src/dsp/mod.rs): Hann window generation, Cooley-Tukey FFT, magnitude calculations, and logarithmic frequency binning.
+- [`src/physics`](src/physics/mod.rs): Interpolation, gravity decay, peak holding, and rise/fall dynamics for spectrum bars.
+- [`src/tui`](src/tui/mod.rs): Terminal geometry detection via ioctl, 24-bit TrueColor gradient mapper, and alternate screen rendering.
+- [`src/main.rs`](src/main.rs): Application loop, resize handling, raw mode terminal management, and pipeline orchestration.

@@ -2,6 +2,7 @@ skilja
 *.o
 *.a
 *.so
+*.lock
 *.so.*
 *.dylib
 docs/
@@ -12,6 +13,7 @@ venv/
 env/
 __pycache__/
 *.py[cod]
+target
 *.tgz
 *.tar.gz
 *.zip
